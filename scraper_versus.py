@@ -31,6 +31,7 @@ versus.com/es/cpu y usa el buscador del sitio.
 
 import os
 import re
+import time
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
@@ -50,23 +51,33 @@ PUNTAJE_REGEX = re.compile(r"(\d{1,3})\s*puntos")
 
 def obtener_score_por_slug(slug: str) -> int | None:
     """
-    Descarga la ficha individual usando ScraperAPI para evadir el bloqueo estricto.
+    Descarga la ficha individual usando ScraperAPI con reintentos automáticos
+    y mayor tolerancia a caídas de red o timeouts.
     """
     url = urljoin(BASE_URL, f"/es/{slug}")
     
-    # 1. Intenta leer la clave de GitHub Actions
     API_KEY = os.environ.get("SCRAPERAPI_KEY")
-    if not API_KEY or API_KEY == "TU_API_KEY_REAL_AQUI" or API_KEY == "00000000000000000000000000000000":
-        # Clave real copiada de tu dashboard para cuando corras el script en tu PC (local)
+    if not API_KEY or API_KEY in ["TU_API_KEY_REAL_AQUI", "00000000000000000000000000000000"]:
         API_KEY = "7fecc11e8d8bd6671ece63ac84dd6f3e" 
 
-    # Estructura limpia recomendada con diccionario de parámetros
     payload = {'api_key': API_KEY, 'url': url}
 
-    try:
-        resp = requests.get('https://api.scraperapi.com/', params=payload, timeout=30)
-    except requests.RequestException as e:
-        print(f"[ERROR] Falló la petición a ScraperAPI ({slug}): {e}")
+    resp = None
+    # Intentamos la petición hasta 2 veces si hay problemas de timeout/red
+    for intento in range(2):
+        try:
+            # Subimos el timeout a 60 segundos para darle más margen a ScraperAPI
+            resp = requests.get('https://api.scraperapi.com/', params=payload, timeout=60)
+            break  # Si la petición no dio excepción, salimos del ciclo de reintento
+        except requests.RequestException as e:
+            if intento == 0:
+                print(f"[AVISO] Timeout o error de red en intento 1 para '{slug}'. Reintentando en 3 segundos...")
+                time.sleep(3)
+            else:
+                print(f"[ERROR] Fallaron todos los intentos para ScraperAPI ({slug}): {e}")
+                return None
+
+    if resp is None:
         return None
 
     if resp.status_code == 401:
