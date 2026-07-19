@@ -65,9 +65,14 @@ def obtener_score_por_slug(slug: str) -> int | None:
     url = urljoin(BASE_URL, f"/es/{slug}")
 
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=15)
+        # Reemplaza 'TU_API_KEY_AQUI' con la clave que te da ScraperAPI al registrarte
+        API_KEY = "TU_API_KEY_AQUI"
+        proxy_url = f"http://api.scraperapi.com?api_key={API_KEY}&url={url}"
+        
+        # Le hacemos la petición a la API en lugar de a Versus directamente
+        resp = requests.get(proxy_url, timeout=30)
     except requests.RequestException as e:
-        print(f"[ERROR] Falló la petición a versus.com ({slug}): {e}")
+        print(f"[ERROR] Falló la petición a través del proxy para ({slug}): {e}")
         return None
 
     if resp.status_code == 404:
