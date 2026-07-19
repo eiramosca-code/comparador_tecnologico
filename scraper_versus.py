@@ -29,6 +29,7 @@ slug de un modelo, búscalo en Google: "site:versus.com <modelo>" o entra a
 versus.com/es/cpu y usa el buscador del sitio.
 """
 
+import os
 import re
 import requests
 from bs4 import BeautifulSoup
@@ -36,24 +37,16 @@ from urllib.parse import urljoin
 
 BASE_URL = "https://versus.com"
 
-# CABECERAS ROBUSTAS: Se añadieron parámetros de control para simular comportamiento humano real
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
     ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-    "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Connection": "keep-alive",
-    "Upgrade-Insecure-Requests": "1",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-User": "?1",
+    "Accept-Language": "es-ES,es;q=0.9",
 }
 
 PUNTAJE_REGEX = re.compile(r"(\d{1,3})\s*puntos")
+
 
 def obtener_score_por_slug(slug: str) -> int | None:
     """
@@ -61,15 +54,23 @@ def obtener_score_por_slug(slug: str) -> int | None:
     """
     url = urljoin(BASE_URL, f"/es/{slug}")
     
-    # 1. Coloca aquí la clave de tu cuenta gratuita de ScraperAPI
-    API_KEY = "TU_API_KEY_REAL_AQUI" 
-    proxy_url = f"http://api.scraperapi.com?api_key={API_KEY}&url={url}"
+    # 1. Intenta leer la clave de GitHub Actions
+    API_KEY = os.environ.get("SCRAPERAPI_KEY")
+    if not API_KEY or API_KEY == "TU_API_KEY_REAL_AQUI" or API_KEY == "00000000000000000000000000000000":
+        # Clave real copiada de tu dashboard para cuando corras el script en tu PC (local)
+        API_KEY = "7fecc11e8d8bd6671ece63ac84dd6f3e" 
+
+    # Estructura limpia recomendada con diccionario de parámetros
+    payload = {'api_key': API_KEY, 'url': url}
 
     try:
-        # Hacemos la consulta a través de la API
-        resp = requests.get(proxy_url, timeout=30)
+        resp = requests.get('https://api.scraperapi.com/', params=payload, timeout=30)
     except requests.RequestException as e:
         print(f"[ERROR] Falló la petición a ScraperAPI ({slug}): {e}")
+        return None
+
+    if resp.status_code == 401:
+        print(f"[ERROR] Clave de ScraperAPI inválida o no configurada para '{slug}'.")
         return None
 
     if resp.status_code == 404:
@@ -95,6 +96,7 @@ def obtener_score_por_slug(slug: str) -> int | None:
         return None
 
     return score
+
 
 if __name__ == "__main__":
     # Prueba rápida y aislada del scraper
