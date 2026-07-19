@@ -57,34 +57,20 @@ PUNTAJE_REGEX = re.compile(r"(\d{1,3})\s*puntos")
 
 def obtener_score_por_slug(slug: str) -> int | None:
     """
-    Descarga la ficha individual de un producto y devuelve su Puntuación Versus,
-    utilizando proxies públicos para evadir el bloqueo de GitHub Actions.
+    Descarga la ficha individual usando ScraperAPI para evadir el bloqueo estricto.
     """
     url = urljoin(BASE_URL, f"/es/{slug}")
+    
+    # 1. Coloca aquí la clave de tu cuenta gratuita de ScraperAPI
+    API_KEY = "TU_API_KEY_REAL_AQUI" 
+    proxy_url = f"http://api.scraperapi.com?api_key={API_KEY}&url={url}"
 
-    # Lista de proxies públicos gratuitos de respaldo
-    lista_proxies = [
-        {"http": "http://45.77.56.114:8080", "https": "http://45.77.56.114:8080"},
-        {"http": "http://185.199.229.156:7492", "https": "http://185.199.229.156:7492"}
-    ]
-
-    resp = None
-    # Intentamos primero con los proxies
-    for proxies in lista_proxies:
-        try:
-            resp = requests.get(url, headers=HEADERS, proxies=proxies, timeout=10)
-            if resp.status_code == 200:
-                break
-        except requests.RequestException:
-            continue
-
-    # Si los proxies fallan, intentamos la conexión directa tradicional
-    if resp is None or resp.status_code != 200:
-        try:
-            resp = requests.get(url, headers=HEADERS, timeout=12)
-        except requests.RequestException as e:
-            print(f"[ERROR] Falló la petición a versus.com ({slug}): {e}")
-            return None
+    try:
+        # Hacemos la consulta a través de la API
+        resp = requests.get(proxy_url, timeout=30)
+    except requests.RequestException as e:
+        print(f"[ERROR] Falló la petición a ScraperAPI ({slug}): {e}")
+        return None
 
     if resp.status_code == 404:
         print(f"[AVISO] versus.com no tiene una ficha para el slug '{slug}' (404).")
@@ -93,7 +79,7 @@ def obtener_score_por_slug(slug: str) -> int | None:
     try:
         resp.raise_for_status()
     except requests.RequestException as e:
-        print(f"[ERROR] versus.com devolvió un error para '{slug}': {e}")
+        print(f"[ERROR] La API devolvió un error para '{slug}': {e}")
         return None
 
     soup = BeautifulSoup(resp.text, "lxml")
